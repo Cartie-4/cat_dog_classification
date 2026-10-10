@@ -1,0 +1,12 @@
+# Ignore all images under data/
+data/**/*.jpg
+data/**/*.jpeg
+data/**/*.png
+data/**/*.gif
+data/**/*.bmp
+data/**/*.webp
+
+# Ignore top-level files directly in data/
+data/*
+!data/train/
+!data/val/

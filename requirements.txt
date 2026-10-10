@@ -1,0 +1,12 @@
+# catdog 环境依赖
+# 注意：torch / torchvision 走官方 CUDA 索引单独安装（见命令），不写在此文件
+
+numpy
+matplotlib
+Pillow
+tqdm
+pandas
+typing
+
+# scikit-learn
+# seaborn
