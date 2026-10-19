@@ -6,7 +6,8 @@ matplotlib
 Pillow
 tqdm
 pandas
-typing
+pytorch-lightning
+jaxtyping
 
 # scikit-learn
 # seaborn

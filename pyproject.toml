@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cat-dog-classification"
+version = "0.1.0"
+description = "Cat vs dog image classification (DNN / CNN / CNN-attention / RNN)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "matplotlib",
+    "Pillow",
+    "tqdm",
+    "pandas",
+    "torch",
+    "torchvision",
+    "pytorch-lightning",
+    "jaxtyping",
+]
+
+[project.scripts]
+catdog-demo = "catdog.example_data.demo:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

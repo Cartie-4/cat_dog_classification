@@ -10,3 +10,13 @@ data/**/*.webp
 data/*
 !data/train/
 !data/val/
+!data/*.md
+
+# Python / packaging artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
