@@ -22,6 +22,7 @@ dependencies = [
 
 [project.scripts]
 catdog-demo = "catdog.example_data.demo:main"
+catdog-train = "catdog.train:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

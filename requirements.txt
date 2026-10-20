@@ -8,6 +8,7 @@ tqdm
 pandas
 pytorch-lightning
 jaxtyping
+tensorboard
 
 # scikit-learn
 # seaborn

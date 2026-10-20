@@ -9,7 +9,7 @@ import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 
 from .types import DATASET_DIR, TransformType
-from .cfg import DataConfig, image_preset, MIN_SHORT_SIDE
+from .cfg import DataConfig, MIN_SHORT_SIDE, image_preset 
 from .dataset import CatDogDataset, make_collate_fn
 from .transforms import build_pipeline, compute_mean_std, pipeline_signature
 
@@ -22,9 +22,10 @@ class CatDogDataModule(pl.LightningDataModule):
     ----
     data_cfg:
         数据配置。默认使用固定尺寸的 ``image_preset()``；
-        若想用 ``CNN_attention`` 的预处理，传入 ``attention_preset()``。
+        若想用 ``CNN_attention`` 的预处理，传入
+        ``CNNAttentionConfig().data``（见 ``models/CNN_attention/cfg.py``）。
     root:
-        数据根目录，默认 ``data/``。
+        数据根目录。默认取 ``DATASET_DIR["kaggle"]``（可用 ``CATDOG_DATA_DIR`` 覆盖）。
     num_workers:
         DataLoader 工作进程数。Windows 下建议保持 0。
     stats_path:
@@ -104,6 +105,7 @@ class CatDogDataModule(pl.LightningDataModule):
 
     def _cache_key(self) -> str:
         signature = pipeline_signature(self.data_cfg.val)
+        # 键里带上 root 与 min_short_side，避免换数据集/阈值后误用旧统计量。
         raw = f"train|{self.root}|{MIN_SHORT_SIDE}|{signature}".encode("utf-8")
         return hashlib.sha1(raw).hexdigest()[:16]
 

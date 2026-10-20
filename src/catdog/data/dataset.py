@@ -72,6 +72,13 @@ def variable_collate_fn(
     batch: list of (x, label)
         - x: (H, W, 3) 的 float32 张量，取值范围 [0, 255]。
         - label: int64 标量。
+
+    返回
+    ----
+    (images, mask, labels):
+        - images: ``(B, Hmax, Wmax, C)``，补零到 batch 内最大尺寸。
+        - mask: ``(B, Hmax, Wmax)`` 的 bool，``True`` 表示原始图像像素。
+        - labels: ``(B,)`` 的 int64 标签。
     """
     xs, ys = zip(*batch)
 

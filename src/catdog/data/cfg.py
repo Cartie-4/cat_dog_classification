@@ -16,12 +16,14 @@ class DataConfig:
 
     Attributes
     ----------
+    variable_size : bool
+        是否保留原图尺寸（True 时使用变尺寸 collate：补零 + mask）。
+    batch_size : int
+        批大小。
     train : list[TransformConfig]
         训练集的预处理管线。
     val : list[TransformConfig]
         验证集的预处理管线。
-    batch_size : int
-        批大小。
     """
     variable_size: bool = False
     batch_size: int = DEFAULT_BATCH_SIZE
@@ -51,24 +53,4 @@ def image_preset(
             TransformConfig(TransformType.CenterCrop, {"size": size}),
             TransformConfig(TransformType.Normalize),
         ],
-    )
-
-
-def attention_preset(batch_size: int = ATTENTION_BATCH_SIZE) -> DataConfig:
-    """CNN_attention 的专用预处理：保留原图尺寸，**不缩放、不裁剪**。
-
-    CNN 会在原图上产生数量不定的特征向量（token），再由 attention 聚合。
-    因此这里只有 ``Normalize``；变尺寸 batch 由补零 + mask 处理。
-
-    .. note::
-       这是 **CNN_attention 专属** 的预设。正式项目中它应移动到
-       ``src/models/CNN_attention/cfg.py``，作为 ``CNNAttentionConfig.data``
-       的默认值，而不是留在通用数据配置里。本示例为了让所有代码集中在一处
-       才暂时放在这里。
-    """
-    return DataConfig(
-        variable_size=True,
-        batch_size=batch_size,
-        train=[TransformConfig(TransformType.Normalize)],
-        val=[TransformConfig(TransformType.Normalize)],
     )
