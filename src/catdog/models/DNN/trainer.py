@@ -25,7 +25,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
+from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor, ModelCheckpoint
 from pytorch_lightning.loggers import tensorboard as tb
 
 
@@ -54,16 +54,23 @@ def build_trainer(
     )
 
     callbacks = [
-        ModelCheckpoint(
-            dirpath=str(ckpt_dir),
-            monitor="val_loss",
-            mode="min",
-            save_top_k=1,      # 只保留 val_loss 最低的一个
-            save_last=True,    # 额外保存最后一轮 last.ckpt
-            filename="epoch={epoch:02d}-val_loss={val_loss:.4f}",
-            auto_insert_metric_name=False,
-        ),
-        LearningRateMonitor(logging_interval="epoch"),
+            ModelCheckpoint(
+                dirpath=str(ckpt_dir),
+                monitor="val_loss",
+                mode="min",
+                save_top_k=1,      # 只保留 val_loss 最低的一个
+                save_last=True,    # 额外保存最后一轮 last.ckpt
+                save_weights_only=True,  # 只存权重，不存优化器状态（文件更小）
+                filename="DNN-epoch={epoch:02d}-val_loss={val_loss:.4f}",
+                auto_insert_metric_name=False,
+            ),
+            EarlyStopping(
+                monitor="val_loss",
+                mode="min",
+                patience=10,
+                verbose=True,
+            ),
+            LearningRateMonitor(logging_interval="epoch"),
     ]
 
     return pl.Trainer(

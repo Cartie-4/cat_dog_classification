@@ -21,4 +21,5 @@ class DNNConfig:
     out_dim: int = 2
     dropout: float = 0.1
     lr: float = 1e-5
+    weight_decay: float = 1e-2
     max_epochs: int = 50

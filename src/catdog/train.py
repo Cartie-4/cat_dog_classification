@@ -15,11 +15,19 @@ from typing import Optional, Tuple
 import pytorch_lightning as pl
 
 from catdog.data import CatDogDataModule
+from catdog.models.CNN import CNN, CNNConfig
+from catdog.models.CNN.trainer import build_trainer as build_cnn_trainer
 from catdog.models.DNN import DNN, DNNConfig
-from catdog.models.DNN.trainer import build_trainer
+from catdog.models.DNN.trainer import build_trainer as build_dnn_trainer
 
 # 固定随机种子：保证权重初始化、数据打乱、增强、dropout 可复现。
 SEED: int = 42
+
+# 模型名 -> 对应的 Trainer 工厂
+TRAINER_BUILDERS = {
+    "dnn": build_dnn_trainer,
+    "cnn": build_cnn_trainer,
+}
 
 
 def build_dnn(
@@ -35,6 +43,30 @@ def build_dnn(
         out_dim=cfg.out_dim,
         dropout=cfg.dropout,
         lr=cfg.lr,
+        weight_decay=cfg.weight_decay,
+    )
+    dm = CatDogDataModule(
+        cfg.data,
+        num_workers=num_workers,
+        stats_max_samples=stats_max_samples,
+    )
+    return model, dm
+
+
+def build_cnn(
+    num_workers: int = 0,
+    stats_max_samples: Optional[int] = None,
+) -> Tuple[pl.LightningModule, CatDogDataModule]:
+    """根据 ``CNNConfig`` 构建 ResNet-18 风格的 CNN 与 DataModule。"""
+    cfg = CNNConfig()
+    model = CNN(
+        in_channels=cfg.in_channels,
+        num_classes=cfg.num_classes,
+        layers=cfg.layers,
+        base_width=cfg.base_width,
+        dropout=cfg.dropout,
+        lr=cfg.lr,
+        weight_decay=cfg.weight_decay,
     )
     dm = CatDogDataModule(
         cfg.data,
@@ -49,11 +81,13 @@ def build(
     num_workers: int = 0,
     stats_max_samples: Optional[int] = None,
 ) -> Tuple[pl.LightningModule, CatDogDataModule]:
-    """模型注册表：以后实现 CNN / RNN 时在这里扩展。"""
+    """模型注册表：以后实现 RNN 时在这里扩展。"""
     if model_name == "dnn":
         return build_dnn(num_workers=num_workers, stats_max_samples=stats_max_samples)
-    if model_name in {"cnn", "rnn"}:
-        raise NotImplementedError(f"{model_name} 模型尚未实现")
+    if model_name == "cnn":
+        return build_cnn(num_workers=num_workers, stats_max_samples=stats_max_samples)
+    if model_name == "rnn":
+        raise NotImplementedError("rnn 模型尚未实现")
     raise ValueError(f"unknown model: {model_name}")
 
 
@@ -89,7 +123,8 @@ def main(argv=None) -> None:
         stats_max_samples=args.stats_max_samples,
     )
 
-    trainer = build_trainer(
+    trainer_builder = TRAINER_BUILDERS[args.model]
+    trainer = trainer_builder(
         max_epochs=args.epochs,
         accelerator=args.accelerator,
         devices=args.devices,

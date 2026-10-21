@@ -7,11 +7,12 @@ import torch
 import torch.nn.functional as F
 
 class DNN(pl.LightningModule):
-    def __init__(self, in_dim: int, hidden_dim: int, bottleneck_dim: int, out_dim: int, dropout: float, lr: float):
+    def __init__(self, in_dim: int, hidden_dim: int, bottleneck_dim: int, out_dim: int, dropout: float, lr: float, weight_decay: float = 1e-2):
         super().__init__()
         self.save_hyperparameters()
         self.lr = lr
         self.dropout = dropout
+        self.weight_decay = weight_decay
 
         self.fc1 = torch.nn.Linear(in_dim, hidden_dim)
         self.fc2 = torch.nn.Linear(hidden_dim, bottleneck_dim)
@@ -51,5 +52,7 @@ class DNN(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        optimizer = torch.optim.Adam(
+            self.parameters(), lr=self.lr, weight_decay=self.weight_decay
+        )
         return optimizer
