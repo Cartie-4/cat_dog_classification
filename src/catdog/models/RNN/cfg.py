@@ -25,6 +25,6 @@ class RNNConfig:
     num_layers: int = 2
     bidirectional: bool = True
     dropout: float = 0.3
-    lr: float = 1e-3
+    lr: float = 1e-4
     weight_decay: float = 1e-4
     max_epochs: int = 30

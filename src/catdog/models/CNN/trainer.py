@@ -34,6 +34,7 @@ def build_trainer(
     max_epochs: int = 50,
     accelerator: str = "auto",
     devices: int = 1,
+    precision: str = "16-mixed",
     out_dir: str = "outputs",
     fast_dev_run: bool = False,
 ) -> pl.Trainer:
@@ -78,6 +79,7 @@ def build_trainer(
     return pl.Trainer(
         accelerator=accelerator,
         devices=devices,
+        precision=precision,
         max_epochs=max_epochs,
         default_root_dir=str(run_dir),
         log_every_n_steps=10,

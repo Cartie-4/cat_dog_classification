@@ -19,6 +19,10 @@ import pytorch_lightning as pl
 from catdog.data import CatDogDataModule
 from catdog.models.CNN import CNN, CNNConfig
 from catdog.models.CNN.trainer import build_trainer as build_cnn_trainer
+from catdog.models.CNN_attention import CNNAttention, CNNAttentionConfig
+from catdog.models.CNN_attention.trainer import (
+    build_trainer as build_cnn_attention_trainer,
+)
 from catdog.models.DNN import DNN, DNNConfig
 from catdog.models.DNN.trainer import build_trainer as build_dnn_trainer
 from catdog.models.RNN import RNN, RNNConfig
@@ -32,6 +36,7 @@ TRAINER_BUILDERS = {
     "dnn": build_dnn_trainer,
     "cnn": build_cnn_trainer,
     "rnn": build_rnn_trainer,
+    "cnn_attention": build_cnn_attention_trainer,
 }
 
 
@@ -109,6 +114,30 @@ def build_rnn(
     return model, dm
 
 
+def build_cnn_attention(
+    num_workers: int = 0,
+    stats_max_samples: Optional[int] = None,
+) -> Tuple[pl.LightningModule, CatDogDataModule]:
+    """根据 ``CNNAttentionConfig`` 构建 CNN + Attention 模型与 DataModule。"""
+    cfg = CNNAttentionConfig()
+    model = CNNAttention(
+        in_channels=cfg.in_channels,
+        num_classes=cfg.num_classes,
+        base_width=cfg.base_width,
+        layers=cfg.layers,
+        fnn_hidden=cfg.fnn_hidden,
+        dropout=cfg.dropout,
+        lr=cfg.lr,
+        weight_decay=cfg.weight_decay,
+    )
+    dm = CatDogDataModule(
+        cfg.data,
+        num_workers=num_workers,
+        stats_max_samples=stats_max_samples,
+    )
+    return model, dm
+
+
 def build(
     model_name: str,
     num_workers: int = 0,
@@ -121,6 +150,10 @@ def build(
         return build_cnn(num_workers=num_workers, stats_max_samples=stats_max_samples)
     if model_name == "rnn":
         return build_rnn(num_workers=num_workers, stats_max_samples=stats_max_samples)
+    if model_name == "cnn_attention":
+        return build_cnn_attention(
+            num_workers=num_workers, stats_max_samples=stats_max_samples
+        )
     raise ValueError(f"unknown model: {model_name}")
 
 
@@ -128,7 +161,11 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Cat vs Dog training with PyTorch Lightning"
     )
-    parser.add_argument("--model", default="dnn", choices=["dnn", "cnn", "rnn"])
+    parser.add_argument(
+        "--model",
+        default="dnn",
+        choices=["dnn", "cnn", "rnn", "cnn_attention"],
+    )
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--accelerator", default="auto", help="auto / gpu / cpu")
     parser.add_argument("--devices", type=int, default=1)

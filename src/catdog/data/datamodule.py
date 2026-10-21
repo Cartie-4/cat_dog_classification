@@ -90,6 +90,7 @@ class CatDogDataModule(pl.LightningDataModule):
             shuffle=train,
             num_workers=self.num_workers,
             collate_fn=make_collate_fn(self.data_cfg.variable_size),
+            drop_last=train,   # 训练集丢弃最后一个不完整 batch；验证集保留全部
             pin_memory=False,
         )
 
@@ -105,8 +106,11 @@ class CatDogDataModule(pl.LightningDataModule):
 
     def _cache_key(self) -> str:
         signature = pipeline_signature(self.data_cfg.val)
-        # 键里带上 root 与 min_short_side，避免换数据集/阈值后误用旧统计量。
-        raw = f"train|{self.root}|{MIN_SHORT_SIDE}|{signature}".encode("utf-8")
+        # 键里带上 root / min_short_side / stats_max_samples，避免换数据集、
+        # 阈值或采样数量后误用旧统计量。
+        raw = (
+            f"train|{self.root}|{MIN_SHORT_SIDE}|{self.stats_max_samples}|{signature}"
+        ).encode("utf-8")
         return hashlib.sha1(raw).hexdigest()[:16]
 
     def _load_cache(self) -> dict:
