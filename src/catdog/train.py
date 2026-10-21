@@ -3,6 +3,8 @@
 用法::
 
     python -m catdog.train --model dnn --epochs 20
+    python -m catdog.train --model cnn --epochs 20
+    python -m catdog.train --model rnn --epochs 20
     python -m catdog.train --model dnn --fast-dev-run    # 1 个 batch 冒烟测试
 
 """
@@ -19,6 +21,8 @@ from catdog.models.CNN import CNN, CNNConfig
 from catdog.models.CNN.trainer import build_trainer as build_cnn_trainer
 from catdog.models.DNN import DNN, DNNConfig
 from catdog.models.DNN.trainer import build_trainer as build_dnn_trainer
+from catdog.models.RNN import RNN, RNNConfig
+from catdog.models.RNN.trainer import build_trainer as build_rnn_trainer
 
 # 固定随机种子：保证权重初始化、数据打乱、增强、dropout 可复现。
 SEED: int = 42
@@ -27,6 +31,7 @@ SEED: int = 42
 TRAINER_BUILDERS = {
     "dnn": build_dnn_trainer,
     "cnn": build_cnn_trainer,
+    "rnn": build_rnn_trainer,
 }
 
 
@@ -76,18 +81,46 @@ def build_cnn(
     return model, dm
 
 
+def build_rnn(
+    num_workers: int = 0,
+    stats_max_samples: Optional[int] = None,
+) -> Tuple[pl.LightningModule, CatDogDataModule]:
+    """根据 ``RNNConfig`` 构建 patch embedding + LSTM 模型与 DataModule。"""
+    cfg = RNNConfig()
+    model = RNN(
+        in_channels=cfg.in_channels,
+        num_classes=cfg.num_classes,
+        patch_size=cfg.patch_size,
+        pic_size=cfg.pic_size,
+        hidden_dim=cfg.hidden_dim,
+        bottleneck_dim=cfg.bottleneck_dim,
+        rnn_hidden=cfg.rnn_hidden,
+        num_layers=cfg.num_layers,
+        bidirectional=cfg.bidirectional,
+        dropout=cfg.dropout,
+        lr=cfg.lr,
+        weight_decay=cfg.weight_decay,
+    )
+    dm = CatDogDataModule(
+        cfg.data,
+        num_workers=num_workers,
+        stats_max_samples=stats_max_samples,
+    )
+    return model, dm
+
+
 def build(
     model_name: str,
     num_workers: int = 0,
     stats_max_samples: Optional[int] = None,
 ) -> Tuple[pl.LightningModule, CatDogDataModule]:
-    """模型注册表：以后实现 RNN 时在这里扩展。"""
+    """模型注册表。"""
     if model_name == "dnn":
         return build_dnn(num_workers=num_workers, stats_max_samples=stats_max_samples)
     if model_name == "cnn":
         return build_cnn(num_workers=num_workers, stats_max_samples=stats_max_samples)
     if model_name == "rnn":
-        raise NotImplementedError("rnn 模型尚未实现")
+        return build_rnn(num_workers=num_workers, stats_max_samples=stats_max_samples)
     raise ValueError(f"unknown model: {model_name}")
 
 

@@ -1,5 +1,6 @@
-"""RNN 模型。"""
+"""RNN 模型（patch embedding + LSTM）。"""
 
 from .cfg import RNNConfig
+from .RNN import RNN, Embedding
 
-__all__ = ["RNNConfig"]
+__all__ = ["RNN", "Embedding", "RNNConfig"]
