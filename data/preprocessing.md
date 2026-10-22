@@ -64,9 +64,15 @@
 
 ## 4. 代码对应
 
-- 示例实现（可运行）：`src/catdog/example_data/`
+- 实现位置：`src/catdog/data/`（常量 `DEFAULT_IMAGE_SIZE=192`、`MIN_SHORT_SIDE=96`）
   - `transforms.py`：几何变换、`Normalize`、配置工厂、统计量
-  - `config.py`：`DataConfig`、`image_preset`、`attention_preset`
+  - `cfg.py`：`DataConfig`、`image_preset`
   - `dataset.py`：`CatDogDataset`、变尺寸 collate（补零 + mask）
   - `datamodule.py`：`CatDogDataModule`（LightningDataModule，含统计量缓存）
-- 生产实现位置：`src/catdog/data/`（按示例重写；常量 `DEFAULT_IMAGE_SIZE=192`、`MIN_SHORT_SIDE=96`）
+
+> 注：早期另有一份自包含示例实现 `src/catdog/example_data/`，它已被删除 ——
+> 上面的生产实现就是最终版本，两者内容一致。
+>
+> 训练/评估口径：训练集按 `MIN_SHORT_SIDE=96` 过滤（2000 → 1985 张）；
+> **验证集不做尺寸过滤**（2000 之外的 500 张全部参与评估），见
+> `CatDogDataModule(train_min_short_side=..., val_min_short_side=0)`。

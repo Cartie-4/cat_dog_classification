@@ -5,6 +5,8 @@
     python -m catdog.train --model dnn --epochs 20
     python -m catdog.train --model cnn --epochs 20
     python -m catdog.train --model rnn --epochs 20
+    python -m catdog.train --model cnn_attention --epochs 20
+    python -m catdog.train --model vit --epochs 20
     python -m catdog.train --model dnn --fast-dev-run    # 1 个 batch 冒烟测试
 
 """
@@ -27,6 +29,8 @@ from catdog.models.DNN import DNN, DNNConfig
 from catdog.models.DNN.trainer import build_trainer as build_dnn_trainer
 from catdog.models.RNN import RNN, RNNConfig
 from catdog.models.RNN.trainer import build_trainer as build_rnn_trainer
+from catdog.models.ViT import ViT, ViTConfig
+from catdog.models.ViT.trainer import build_trainer as build_vit_trainer
 
 # 固定随机种子：保证权重初始化、数据打乱、增强、dropout 可复现。
 SEED: int = 42
@@ -37,15 +41,34 @@ TRAINER_BUILDERS = {
     "cnn": build_cnn_trainer,
     "rnn": build_rnn_trainer,
     "cnn_attention": build_cnn_attention_trainer,
+    "vit": build_vit_trainer,
 }
+
+# 模型名 -> 配置类（用于取默认 epoch 数等）
+CONFIG_CLASSES = {
+    "dnn": DNNConfig,
+    "cnn": CNNConfig,
+    "rnn": RNNConfig,
+    "cnn_attention": CNNAttentionConfig,
+    "vit": ViTConfig,
+}
+
+
+def default_epochs(model_name: str) -> int:
+    """取该模型 ``cfg.py`` 里推荐的 ``max_epochs``（命令行不传 ``--epochs`` 时用）。"""
+    return CONFIG_CLASSES[model_name]().max_epochs
 
 
 def build_dnn(
     num_workers: int = 0,
     stats_max_samples: Optional[int] = None,
+    cfg: Optional[DNNConfig] = None,
 ) -> Tuple[pl.LightningModule, CatDogDataModule]:
-    """根据 ``DNNConfig`` 构建模型与 DataModule（数据配置来自 ``cfg.data``）。"""
-    cfg = DNNConfig()
+    """根据 ``DNNConfig`` 构建模型与 DataModule（数据配置来自 ``cfg.data``）。
+
+    ``cfg`` 为空时使用默认配置；调参脚本（``catdog.tune``）会传入自己的配置。
+    """
+    cfg = cfg or DNNConfig()
     model = DNN(
         in_dim=cfg.in_dim,
         hidden_dim=cfg.hidden_dim,
@@ -66,9 +89,13 @@ def build_dnn(
 def build_cnn(
     num_workers: int = 0,
     stats_max_samples: Optional[int] = None,
+    cfg: Optional[CNNConfig] = None,
 ) -> Tuple[pl.LightningModule, CatDogDataModule]:
-    """根据 ``CNNConfig`` 构建 ResNet-18 风格的 CNN 与 DataModule。"""
-    cfg = CNNConfig()
+    """根据 ``CNNConfig`` 构建 ResNet-18 风格的 CNN 与 DataModule。
+
+    ``cfg`` 为空时使用默认配置。
+    """
+    cfg = cfg or CNNConfig()
     model = CNN(
         in_channels=cfg.in_channels,
         num_classes=cfg.num_classes,
@@ -89,9 +116,13 @@ def build_cnn(
 def build_rnn(
     num_workers: int = 0,
     stats_max_samples: Optional[int] = None,
+    cfg: Optional[RNNConfig] = None,
 ) -> Tuple[pl.LightningModule, CatDogDataModule]:
-    """根据 ``RNNConfig`` 构建 patch embedding + LSTM 模型与 DataModule。"""
-    cfg = RNNConfig()
+    """根据 ``RNNConfig`` 构建 patch embedding + LSTM 模型与 DataModule。
+
+    ``cfg`` 为空时使用默认配置。
+    """
+    cfg = cfg or RNNConfig()
     model = RNN(
         in_channels=cfg.in_channels,
         num_classes=cfg.num_classes,
@@ -117,9 +148,13 @@ def build_rnn(
 def build_cnn_attention(
     num_workers: int = 0,
     stats_max_samples: Optional[int] = None,
+    cfg: Optional[CNNAttentionConfig] = None,
 ) -> Tuple[pl.LightningModule, CatDogDataModule]:
-    """根据 ``CNNAttentionConfig`` 构建 CNN + Attention 模型与 DataModule。"""
-    cfg = CNNAttentionConfig()
+    """根据 ``CNNAttentionConfig`` 构建 CNN + Attention 模型与 DataModule。
+
+    ``cfg`` 为空时使用默认配置。
+    """
+    cfg = cfg or CNNAttentionConfig()
     model = CNNAttention(
         in_channels=cfg.in_channels,
         num_classes=cfg.num_classes,
@@ -138,21 +173,68 @@ def build_cnn_attention(
     return model, dm
 
 
+def build_vit(
+    num_workers: int = 0,
+    stats_max_samples: Optional[int] = None,
+    cfg: Optional[ViTConfig] = None,
+) -> Tuple[pl.LightningModule, CatDogDataModule]:
+    """根据 ``ViTConfig`` 构建 Vision Transformer 与 DataModule。
+
+    ``cfg`` 为空时使用默认配置。预处理与 DNN / CNN / RNN 共用 ``image_preset()``。
+    """
+    cfg = cfg or ViTConfig()
+    model = ViT(
+        in_channels=cfg.in_channels,
+        num_classes=cfg.num_classes,
+        image_size=cfg.image_size,
+        patch_size=cfg.patch_size,
+        embed_dim=cfg.embed_dim,
+        depth=cfg.depth,
+        num_heads=cfg.num_heads,
+        mlp_ratio=cfg.mlp_ratio,
+        dropout=cfg.dropout,
+        attn_dropout=cfg.attn_dropout,
+        lr=cfg.lr,
+        weight_decay=cfg.weight_decay,
+        warmup_frac=cfg.warmup_frac,
+        min_lr_ratio=cfg.min_lr_ratio,
+    )
+    dm = CatDogDataModule(
+        cfg.data,
+        num_workers=num_workers,
+        stats_max_samples=stats_max_samples,
+    )
+    return model, dm
+
+
 def build(
     model_name: str,
     num_workers: int = 0,
     stats_max_samples: Optional[int] = None,
+    cfg: Optional[
+        DNNConfig | CNNConfig | RNNConfig | CNNAttentionConfig
+    ] = None,
 ) -> Tuple[pl.LightningModule, CatDogDataModule]:
-    """模型注册表。"""
+    """模型注册表。``cfg`` 为空时各模型使用自己 cfg.py 里的默认配置。"""
     if model_name == "dnn":
-        return build_dnn(num_workers=num_workers, stats_max_samples=stats_max_samples)
+        return build_dnn(
+            num_workers=num_workers, stats_max_samples=stats_max_samples, cfg=cfg
+        )
     if model_name == "cnn":
-        return build_cnn(num_workers=num_workers, stats_max_samples=stats_max_samples)
+        return build_cnn(
+            num_workers=num_workers, stats_max_samples=stats_max_samples, cfg=cfg
+        )
     if model_name == "rnn":
-        return build_rnn(num_workers=num_workers, stats_max_samples=stats_max_samples)
+        return build_rnn(
+            num_workers=num_workers, stats_max_samples=stats_max_samples, cfg=cfg
+        )
     if model_name == "cnn_attention":
         return build_cnn_attention(
-            num_workers=num_workers, stats_max_samples=stats_max_samples
+            num_workers=num_workers, stats_max_samples=stats_max_samples, cfg=cfg
+        )
+    if model_name == "vit":
+        return build_vit(
+            num_workers=num_workers, stats_max_samples=stats_max_samples, cfg=cfg
         )
     raise ValueError(f"unknown model: {model_name}")
 
@@ -164,9 +246,14 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument(
         "--model",
         default="dnn",
-        choices=["dnn", "cnn", "rnn", "cnn_attention"],
+        choices=["dnn", "cnn", "rnn", "cnn_attention", "vit"],
     )
-    parser.add_argument("--epochs", type=int, default=50)
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        default=None,
+        help="训练轮数；不传则用该模型 cfg.py 里的 max_epochs",
+    )
     parser.add_argument("--accelerator", default="auto", help="auto / gpu / cpu")
     parser.add_argument("--devices", type=int, default=1)
     parser.add_argument("--num-workers", type=int, default=0)
@@ -194,8 +281,10 @@ def main(argv=None) -> None:
     )
 
     trainer_builder = TRAINER_BUILDERS[args.model]
+    epochs = args.epochs if args.epochs is not None else default_epochs(args.model)
+    print(f"[train] model={args.model} epochs={epochs}")
     trainer = trainer_builder(
-        max_epochs=args.epochs,
+        max_epochs=epochs,
         accelerator=args.accelerator,
         devices=args.devices,
         out_dir=args.out_dir,

@@ -1,1 +1,1 @@
-"""模型包：DNN / CNN / CNN_attention / RNN。"""
+"""模型包：DNN / CNN / CNN_attention / RNN / ViT。"""

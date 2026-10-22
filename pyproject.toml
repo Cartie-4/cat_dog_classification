@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cat-dog-classification"
 version = "0.1.0"
-description = "Cat vs dog image classification (DNN / CNN / CNN-attention / RNN)"
+description = "Cat vs dog image classification (DNN / CNN / CNN-attention / RNN / ViT)"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -21,8 +21,9 @@ dependencies = [
 ]
 
 [project.scripts]
-catdog-demo = "catdog.example_data.demo:main"
 catdog-train = "catdog.train:main"
+catdog-tune = "catdog.tune:main"
+catdog-eval = "catdog.evaluate:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

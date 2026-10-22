@@ -32,6 +32,13 @@ class CatDogDataModule(pl.LightningDataModule):
         统计量缓存文件路径。
     stats_max_samples:
         计算统计量时最多扫描多少张训练图（None 表示全部）。
+    train_min_short_side:
+        训练集过滤阈值：短边小于它的图不参与训练（默认 ``MIN_SHORT_SIDE = 96``）。
+        过滤训练样本是为了省算力、避免把极小的图放大到 192 后只剩插值噪声。
+    val_min_short_side:
+        验证集过滤阈值，**默认 0（不过滤）**。
+        验证集是评估口径，必须覆盖全部 500 张：否则指标分母变小、和别人的结果无法对比，
+        而且被剔掉的往往正是极端/困难样本。小图走 ``Resize(192)`` 会放大，但仍是有效输入。
     """
 
     def __init__(
@@ -41,6 +48,8 @@ class CatDogDataModule(pl.LightningDataModule):
         num_workers: int = 0,
         stats_path: Path = DEFAULT_STATS_PATH,
         stats_max_samples: Optional[int] = None,
+        train_min_short_side: int = MIN_SHORT_SIDE,
+        val_min_short_side: int = 0,
     ):
         super().__init__()
         self.data_cfg = data_cfg if data_cfg is not None else image_preset()
@@ -48,6 +57,8 @@ class CatDogDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         self.stats_path = Path(stats_path)
         self.stats_max_samples = stats_max_samples
+        self.train_min_short_side = train_min_short_side
+        self.val_min_short_side = val_min_short_side
 
         self._train_ds: Optional[CatDogDataset] = None
         self._val_ds: Optional[CatDogDataset] = None
@@ -68,10 +79,16 @@ class CatDogDataModule(pl.LightningDataModule):
         val_tf = build_pipeline(self.data_cfg.val, stats=self.stats)
 
         self._train_ds = CatDogDataset(
-            "train", root=self.root, transform=train_tf
-        )    
+            "train",
+            root=self.root,
+            transform=train_tf,
+            min_short_side=self.train_min_short_side,
+        )
         self._val_ds = CatDogDataset(
-            "val", root=self.root, transform=val_tf
+            "val",
+            root=self.root,
+            transform=val_tf,
+            min_short_side=self.val_min_short_side,
         )
 
     def teardown(self, stage: Optional[str] = None) -> None:
@@ -109,7 +126,8 @@ class CatDogDataModule(pl.LightningDataModule):
         # 键里带上 root / min_short_side / stats_max_samples，避免换数据集、
         # 阈值或采样数量后误用旧统计量。
         raw = (
-            f"train|{self.root}|{MIN_SHORT_SIDE}|{self.stats_max_samples}|{signature}"
+            f"train|{self.root}|{self.train_min_short_side}|"
+            f"{self.stats_max_samples}|{signature}"
         ).encode("utf-8")
         return hashlib.sha1(raw).hexdigest()[:16]
 
@@ -146,7 +164,12 @@ class CatDogDataModule(pl.LightningDataModule):
         ]
         stats_tf = build_pipeline(stats_cfgs)
 
-        dataset = CatDogDataset("train", root=self.root, transform=stats_tf)
+        dataset = CatDogDataset(
+            "train",
+            root=self.root,
+            transform=stats_tf,
+            min_short_side=self.train_min_short_side,
+        )
         n = len(dataset)
         if self.stats_max_samples is not None:
             n = min(n, self.stats_max_samples)
