@@ -137,7 +137,28 @@ python -m catdog.evaluate --ckpt <ckpt 文件> --split both --top-k-errors 20
 
 > 说明：`--split train` 用**确定性验证管线**跑训练集，避免随机增强影响指标。
 
-**现成的五个混淆矩阵**（本轮训练的最终 ckpt，已在仓库里）：
+## 权重文件在哪
+
+> **重要：`outputs/` 已在 `.gitignore` 里，所以下面这些文件只在本地工作目录，不在版本库中**
+> （`git ls-files outputs` 返回空）。换机器/重新 clone 后不会带过来，需要重跑训练自己生成。
+
+五个模型最终权重的确切路径（共约 313 MB，`last.ckpt` 是各目录里的另一份）：
+
+| 模型 | ckpt 路径 | 大小 |
+|---|---|---|
+| CNN_attention | `outputs/final3/cnn_attention_acc/2026-10-23_09-46-47/checkpoints/epoch=57-val_acc=0.9020.ckpt` | 45.0 MB |
+| CNN | `outputs/final3/cnn_acc/2026-10-23_08-33-15/checkpoints/CNN-epoch=86-val_acc=0.9000.ckpt` | 42.7 MB |
+| ViT | `outputs/final3/vit_acc/2026-10-23_09-15-42/checkpoints/ViT-epoch=34-val_acc=0.7360.ckpt` | 6.5 MB |
+| RNN | `outputs/final3/rnn_acc/2026-10-23_09-31-50/checkpoints/RNN_epoch=34-val_acc=0.7140.ckpt` | 2.0 MB |
+| DNN | `outputs/final3/dnn_acc/2026-10-23_09-10-44/checkpoints/DNN-epoch=08-val_acc=0.6420.ckpt` | 216.5 MB |
+
+想直接从权重回到混淆矩阵：
+
+```bash
+python -m catdog.evaluate --ckpt outputs/final3/cnn_acc/<时间>/checkpoints --out outputs/eval3/cnn_acc
+```
+
+**现成的五个混淆矩阵**（对应上表权重的评估结果，同样只在本地）：
 
 | 模型 | 图 | 数据 |
 |---|---|---|
@@ -146,6 +167,10 @@ python -m catdog.evaluate --ckpt <ckpt 文件> --split both --top-k-errors 20
 | ViT | `outputs/eval3/vit_acc/confusion_matrix.png` | 同上 |
 | RNN | `outputs/eval3/rnn_acc/confusion_matrix.png` | 同上 |
 | DNN | `outputs/eval3/dnn_acc/confusion_matrix.png` | 同上 |
+
+> 注意：上表这几张图在 `outputs/` 下，**同样不在版本库里**。
+> 真正进了版本库的只有 `docs/` 下的内容——包括拼图版 `docs/confusion_matrices.png`、
+> `docs/models_architecture.html`、`docs/调参报告.docx` 等。
 
 五张拼成一张的总览图在 `docs/confusion_matrices.png`；
 `docs/models_architecture.html` 的「混淆矩阵」一节也直接嵌了这五张图。
@@ -156,7 +181,7 @@ python -m catdog.evaluate --ckpt <ckpt 文件> --split both --top-k-errors 20
 
 | 工具 | 作用 |
 |---|---|
-| `tools/all_metrics.py` | **总表生成器**。把五个模型的参数量、超参、搜索结果、最终训练/评估、混淆矩阵、错误构成汇总成多张 markdown 表（输出到 stdout，可重定向存文件）。`--eval-dir`/`--suffix` 指定评估目录与搜索标签；定位模型目录时会自动尝试 `<model>/` 和 `<model>_*/`。开完一轮调参后跑它就能拿到全部数字，本仓库 `outputs/all_metrics.md` 就是它的产物。 |
+| `tools/all_metrics.py` | **总表生成器**。把五个模型的参数量、超参、搜索结果、最终训练/评估、混淆矩阵、错误构成汇总成多张 markdown 表（输出到 stdout，可重定向存文件）。`--eval-dir`/`--suffix` 指定评估目录与搜索标签；定位模型目录时会自动尝试 `<model>/` 和 `<model>_*/`。开完一轮调参后跑它就能拿到全部数字，本工作目录 `outputs/all_metrics.md` 就是它的产物（未进版本库）。 |
 | `tools/summarize_tuning.py` | **搜索结果汇总**。读 `<model>_trials.jsonl`，输出"基线 vs 搜索最优"的对比表与逐 epoch 曲线，用于快速看某个模型的搜索全景。 |
 | `tools/analyze_search.py` | **早停式搜索分析**。除了排名，还输出每组的**实际收敛轮数**、峰值出现在第几轮、`lr ↔ 收敛轮数`对照表、以及曲线尾部（判断是否真的进平台期）。专门用来回答"搜几个 epoch 才够"。 |
 | `tools/compare_errors.py` | **两个模型的错分集合对比**。回答"这两个模型错的是同一批图吗"：错分交集、Jaccard、独立性假设下的期望交集 + 超几何检验、按真实类别拆分、共同错分样本清单。也用来估"与模型无关的上限"（所有模型都错的图 ≈ 标签噪声）。 |

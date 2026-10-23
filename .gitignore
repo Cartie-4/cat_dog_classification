@@ -20,4 +20,20 @@ build/
 dist/
 .pytest_cache/
 .mypy_cache/
-outputs/
+
+# outputs/ 默认全部忽略，只放行「五个模型的最优权重」（走 Git LFS，见 .gitattributes）
+# 注意：git 不允许父目录被排除后再包含其中的文件，所以必须逐层放行。
+outputs/*
+!outputs/final3/
+outputs/final3/*
+!outputs/final3/*_acc/
+outputs/final3/*_acc/*
+!outputs/final3/*_acc/*/
+outputs/final3/*_acc/*/*
+!outputs/final3/*_acc/*/checkpoints/
+outputs/final3/*_acc/*/checkpoints/*
+!outputs/final3/*_acc/*/checkpoints/*val_acc=*.ckpt
+
+# Office（Word/Excel）锁文件与临时文件
+~$*
+*.tmp
