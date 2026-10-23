@@ -35,6 +35,7 @@ def build_trainer(
     devices: int = 1,
     precision: str = "16-mixed",
     out_dir: str = "outputs",
+    monitor: str = "val_loss",
     fast_dev_run: bool = False,
 ) -> pl.Trainer:
     """构建训练用的 ``pl.Trainer``。
@@ -47,6 +48,8 @@ def build_trainer(
     run_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     run_dir = Path(out_dir) / run_name
     ckpt_dir = run_dir / "checkpoints"
+    # monitor="val_acc" 时按准确率挑最优权重并按准确率早停（mode=max）
+    _mode = "min" if monitor == "val_loss" else "max"
 
     logger = tb.TensorBoardLogger(
         save_dir=out_dir,
@@ -57,15 +60,17 @@ def build_trainer(
     callbacks = [
             ModelCheckpoint(
                 dirpath=str(ckpt_dir),
-                monitor="val_loss",
-                mode="min",
+                monitor=monitor,
+                mode=_mode,
                 save_top_k=1,      # 只保留 val_loss 最低的一个
                 save_last=True,    # 额外保存最后一轮 last.ckpt
                 save_weights_only=True,  # 只存权重，不存优化器状态（文件更小）
-                filename="DNN-epoch={epoch:02d}-val_loss={val_loss:.4f}",
+                filename=f"DNN-epoch={{epoch:02d}}-{monitor}={{{monitor}:.4f}}",
                 auto_insert_metric_name=False,
             ),
             EarlyStopping(
+                # 注意：早停固定用 val_loss —— val_acc 抖动大，
+                # 用它会让训练在收敛前被砍掉（实测 CNN 第 15 轮就停了）
                 monitor="val_loss",
                 mode="min",
                 patience=10,

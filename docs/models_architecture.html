@@ -73,6 +73,11 @@
   tfoot td { font-weight: 600; }
 
   .bars { display: grid; gap: 16px; margin: 18px 0 6px; }
+  .mats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 16px 0 6px; }
+  .mats figure { margin: 0; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px 12px; background: #fff; }
+  .mats img { width: 100%; height: auto; display: block; }
+  .mats figcaption { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .mats figcaption b { color: var(--ink); }
   .barlabel { font-size: 12px; color: var(--muted); margin-bottom: 5px; display: flex; justify-content: space-between; }
   .bar { display: flex; height: 26px; border-radius: 6px; overflow: hidden; border: 1px solid var(--line); background: #fff; }
   .seg { display: flex; align-items: center; justify-content: center; font-size: 11px; color: #fff; overflow: hidden; white-space: nowrap; }
@@ -100,17 +105,21 @@
     <b>验证集不做尺寸过滤</b>（<code>val_min_short_side = 0</code>），500 张全评估，保证指标口径可对比。
     训练集 1985 = 62×32 + 1，<code>drop_last=True</code> 再丢最后 1 张，故每个 epoch 实际用 1984 张。
   </div>
+  <div class="sub" style="margin-top:6px">
+    下面的准确率全部来自 <code>catdog.train --monitor val_acc</code>：<b>存档跟随 val_acc</b>（选验证准确率最高的那一轮权重），
+    但<b>早停仍然看 val_loss</b>。实测这一改动让五个模型平均 +1.3 pt（详见 <code>docs/调参报告.docx</code> 第 2.2 节）。
+  </div>
 </header>
 
 <h2>共用约定</h2>
 <div class="note">
   数据管线输出 <b>HWC</b> 布局 <code>(B, H, W, C)</code>：DNN 直接 <code>flatten(1)</code> 当特征向量；
-  CNN / RNN / CNN_attention 先 <code>permute(0,3,1,2)</code> 转成 NCHW 再进卷积。
+  CNN / RNN / CNN_attention / ViT 先 <code>permute(0,3,1,2)</code> 转成 NCHW 再进卷积。
 </div>
 
 <h3>两套预处理管线</h3>
 <div class="flow">
-  <div class="node io"><div class="t">DNN / CNN / RNN</div><div class="s">短边缩放到 192</div></div>
+  <div class="node io"><div class="t">DNN / CNN / RNN / ViT</div><div class="s">短边缩放到 192</div></div>
   <div class="arrow">→</div>
   <div class="node"><div class="t">随机裁剪 192</div><div class="s">验证用中心裁剪</div></div>
   <div class="arrow">→</div>
@@ -118,7 +127,13 @@
   <div class="arrow">→</div>
   <div class="node"><div class="t">标准化</div><div class="s">训练集统计的 mean / std</div></div>
   <div class="arrow">→</div>
-  <div class="node io"><div class="t">固定 192×192</div><div class="s">batch 32</div></div>
+  <div class="node"><div class="t">随机旋转 ±15°</div><div class="s">仅训练；放在标准化之后</div></div>
+  <div class="arrow">→</div>
+  <div class="node io"><div class="t">固定 192×192</div><div class="s">batch 见各模型</div></div>
+</div>
+<div class="note">
+  <b>关于随机旋转的顺序：</b>它被放在 <code>Normalize</code> <b>之后</b>，这样旋转补出来的边界值是 0，
+  而 0 在标准化空间里正好对应逐通道均值色 —— 不会像旋转前补零那样在图像外圈留下黑边。
 </div>
 <div class="flow">
   <div class="node io"><div class="t">CNN_attention</div><div class="s">保留原图尺寸（不缩放不裁剪）</div></div>
@@ -142,7 +157,7 @@
   <span class="chip">weight_decay <b>5.05e-3</b></span>
   <span class="chip">dropout <b>0.273</b></span>
   <span class="chip">batch <b>32</b></span>
-  <span class="chip">验证准确率 <b>63.20%</b>（500 张）</span>
+  <span class="chip">验证准确率 <b>64.20%</b>（500 张）</span>
 </div>
 <div class="flow">
   <div class="node io dnn"><div class="t">输入 HWC</div><div class="s">(B, 192, 192, 3)</div></div>
@@ -160,16 +175,16 @@
   <div class="node io"><div class="t">logits</div><div class="s">cat / dog</div></div>
 </div>
 
-<h3>逐层参数（合计 56 755 970）</h3>
+<h3>逐层参数（合计 56 756 354）</h3>
 <table>
   <thead><tr><th>层</th><th>运算</th><th class="num">参数量</th><th class="num">占比</th></tr></thead>
   <tbody>
     <tr><td>FC1</td><td>110 592 × 512 + 512</td><td class="num">56 623 616</td><td class="num">99.77%</td></tr>
     <tr><td>FC2</td><td>512 × 128 + 128</td><td class="num">65 664</td><td class="num">0.12%</td></tr>
-    <tr><td>FC3</td><td>128 × 512 + 512</td><td class="num">65 664</td><td class="num">0.12%</td></tr>
+    <tr><td>FC3</td><td>128 × 512 + 512</td><td class="num">66 048</td><td class="num">0.12%</td></tr>
     <tr><td>FC4</td><td>512 × 2 + 2</td><td class="num">1 026</td><td class="num">0.002%</td></tr>
   </tbody>
-  <tfoot><tr><td colspan="2">合计</td><td class="num">56 755 970</td><td class="num">100%</td></tr></tfoot>
+  <tfoot><tr><td colspan="2">合计</td><td class="num">56 756 354</td><td class="num">100%</td></tr></tfoot>
 </table>
 <div class="note">
   第一层就吃掉 99.8% 的参数，输入维度过大导致首层梯度尺度大，所以对 lr 极敏感：
@@ -180,30 +195,30 @@
 
 <h2>2. CNN <span class="tag">ResNet-18 风格残差网络 · 每 stage 2 个 BasicBlock</span></h2>
 <div class="meta">
-  <span class="chip">参数量 <b>25.13 M</b></span>
-  <span class="chip">base_width <b>96</b></span>
-  <span class="chip">lr <b>8.3e-3</b></span>
-  <span class="chip">weight_decay <b>4.47e-6</b></span>
-  <span class="chip">dropout <b>0.178</b></span>
-  <span class="chip">batch <b>64</b></span>
-  <span class="chip">验证准确率 <b>86.60%</b>（500 张）</span>
+  <span class="chip">参数量 <b>11.18 M</b></span>
+  <span class="chip">base_width <b>64</b></span>
+  <span class="chip">lr <b>4.04e-3</b></span>
+  <span class="chip">weight_decay <b>2.3e-5</b></span>
+  <span class="chip">dropout <b>0.078</b></span>
+  <span class="chip">batch <b>32</b></span>
+  <span class="chip">验证准确率 <b>90.00%</b>（500 张）</span>
 </div>
 <div class="flow">
   <div class="node io cnn"><div class="t">输入 NCHW</div><div class="s">(B, 3, 192, 192)</div></div>
   <div class="arrow">→</div>
-  <div class="node cnn"><div class="t">stem</div><div class="s">conv 7×7 /s2 · BN · ReLU</div><div class="s">maxpool 3×3 /s2</div><div class="s">96 ch @ 96 → 48</div><div class="p">14 304</div></div>
+  <div class="node cnn"><div class="t">stem</div><div class="s">conv 7×7 /s2 · BN · ReLU</div><div class="s">maxpool 3×3 /s2</div><div class="s">64 ch @ 96 → 48</div><div class="p">9 536</div></div>
   <div class="arrow">→</div>
-  <div class="node cnn"><div class="t">layer1 ×2</div><div class="s">96 ch @ 48²</div><div class="p">332 544</div></div>
+  <div class="node cnn"><div class="t">layer1 ×2</div><div class="s">64 ch @ 48²</div><div class="p">147 968</div></div>
   <div class="arrow">→</div>
-  <div class="node cnn"><div class="t">layer2 ×2</div><div class="s">192 ch @ 24²</div><div class="p">1 181 568</div></div>
+  <div class="node cnn"><div class="t">layer2 ×2</div><div class="s">128 ch @ 24²</div><div class="p">525 568</div></div>
   <div class="arrow">→</div>
-  <div class="node cnn"><div class="t">layer3 ×2</div><div class="s">384 ch @ 12²</div><div class="p">4 722 432</div></div>
+  <div class="node cnn"><div class="t">layer3 ×2</div><div class="s">256 ch @ 12²</div><div class="p">2 099 712</div></div>
   <div class="arrow">→</div>
-  <div class="node cnn"><div class="t">layer4 ×2</div><div class="s">768 ch @ 6²</div><div class="p">18 882 048</div></div>
+  <div class="node cnn"><div class="t">layer4 ×2</div><div class="s">512 ch @ 6²</div><div class="p">8 393 728</div></div>
   <div class="arrow">→</div>
-  <div class="node cnn"><div class="t">GAP</div><div class="s">768 维</div><div class="p">0</div></div>
+  <div class="node cnn"><div class="t">GAP</div><div class="s">512 维</div><div class="p">0</div></div>
   <div class="arrow">→</div>
-  <div class="node cnn"><div class="t">分类头</div><div class="s">Dropout 0.178</div><div class="s">Linear 768 → 2</div><div class="p">1 538</div></div>
+  <div class="node cnn"><div class="t">分类头</div><div class="s">Dropout 0.078</div><div class="s">Linear 512 → 2</div><div class="p">1 026</div></div>
 </div>
 
 <div class="inset">
@@ -230,9 +245,12 @@
   BasicBlock 参数 = 2 × 9·C_in·C_out（两个 3×3 卷积）+ 4·C_out（两个 BN）+ [C_in·C_out + 2·C_out]（形态 B 的 shortcut）
 </div>
 <div class="note">
-  通道 96 → 192 → 384 → 768 每翻一倍，参数按 C² 增长 ×4，所以 layer4 独占 <b>75.1%</b>。<br>
-  这个模型经历过两次方向相反的调整：第一轮短预算（8 epoch）得出"宽度减半更好"（width 64→32，2.80 M，81.4%）；
-  第二轮训练到早停后完全反转 —— width 96 + lr 8.3e-3 拿到 86.60%，参数量反而涨到 25.13 M。
+  通道 64 → 128 → 256 → 512 每翻一倍，参数按 C² 增长 ×4，所以 layer4 独占 <b>75.1%</b>。<br>
+  <b>宽度这一项被三轮搜索来回推翻过：</b>第一轮短预算（8 epoch）得出"越窄越好"（width 64→32，2.80 M，81.4%）；
+  第二轮训练到早停又完全反转（width 96，lr 8.3e-3，<b>25.13 M</b>，86.60%）；
+  第三轮加入随机旋转后<b>又回到 width 64</b>（11.18 M，lr 4.04e-3），但精度反而涨到 <b>90.00%</b>。
+  原因是旋转把有效数据量放大了，模型不需要靠加宽去记忆，收敛轮次也从 91 轮拉到 101 轮。
+  <b>结论：宽度不是自变量，它和正则强度、训练轮数是耦合的。</b>
 </div>
 
 <hr class="hr">
@@ -247,7 +265,7 @@
   <span class="chip">weight_decay <b>1.05e-4</b></span>
   <span class="chip">dropout <b>0.013</b></span>
   <span class="chip">batch <b>64</b></span>
-  <span class="chip">验证准确率 <b>72.40%</b>（500 张）</span>
+  <span class="chip">验证准确率 <b>71.40%</b>（500 张）</span>
 </div>
 <div class="flow">
   <div class="node io rnn"><div class="t">输入 NCHW</div><div class="s">(B, 3, 192, 192)</div></div>
@@ -299,7 +317,13 @@
 <div class="note">
   第一轮短预算得出的是相反结论（把 <code>hidden_dim</code> 砍到 128、lr 提到 1.1e-3，69.60%）；
   第二轮训练到早停后，最优变成"窄 LSTM + 低 lr + 几乎不 dropout"（0.53 M，72.40%），
-  而且实例化检查确认：这个配置的类别偏置也被修好了（旧版狗召回只有 0.594，现在 0.728）。
+  而且实例化检查确认：这个配置的类别偏置也被修好了（旧版狗召回只有 0.594，现在 0.724）。
+</div>
+<div class="note">
+  <b>RNN 是随机旋转的唯一受害者。</b>同一个配置加旋转后掉到 <b>69.20%</b>（−3.2 pt，第三个轮次的搜索配置）；
+  换成第二轮这组配置复验仍有 70.00%，按准确率存档后 71.40%，都低于不加旋转的 72.40%。
+  原因是 RNN 本来就<b>欠拟合</b>（train_acc 低于 val_acc），旋转让任务更难只会雪上加霜。
+  而 CNN 是过拟合型，同样的旋转让它 +2.0 pt —— <b>同一个增强对不同模型符号相反</b>，这是本轮最值得记住的一条。
 </div>
 
 <hr class="hr">
@@ -312,7 +336,7 @@
   <span class="chip">lr <b>1.15e-4</b></span>
   <span class="chip">dropout <b>0.202</b></span>
   <span class="chip">batch <b>8</b>（变尺寸）</span>
-  <span class="chip">验证准确率 <b>89.80%</b>（500 张）</span>
+  <span class="chip">验证准确率 <b>90.20%</b>（500 张）</span>
 </div>
 <div class="flow">
   <div class="node io att"><div class="t">输入 HWC + mask</div><div class="s">(B, H, W, 3) 变尺寸</div></div>
@@ -368,25 +392,25 @@
 
 <h2>5. ViT <span class="tag">Vision Transformer · patch embedding + 多头自注意力</span></h2>
 <div class="meta">
-  <span class="chip">参数量 <b>0.91 M</b></span>
+  <span class="chip">参数量 <b>1.70 M</b></span>
   <span class="chip">patch <b>16</b>（→ 144 token）</span>
   <span class="chip">embed_dim <b>128</b></span>
-  <span class="chip">depth <b>4</b> · heads <b>4</b></span>
-  <span class="chip">lr <b>1.9e-4</b>（warmup 峰值）</span>
-  <span class="chip">weight_decay <b>1.24e-4</b></span>
-  <span class="chip">dropout <b>0.083</b></span>
-  <span class="chip">验证准确率 <b>72.00%</b>（500 张）</span>
+  <span class="chip">depth <b>8</b> · heads <b>4</b></span>
+  <span class="chip">lr <b>1.52e-4</b>（warmup 峰值）</span>
+  <span class="chip">weight_decay <b>1.31e-4</b></span>
+  <span class="chip">dropout <b>0.028</b></span>
+  <span class="chip">验证准确率 <b>73.60%</b>（500 张）</span>
 </div>
 <div class="flow">
   <div class="node io att"><div class="t">输入 HWC</div><div class="s">(B, 192, 192, 3)</div></div>
   <div class="arrow">→</div>
-  <div class="node att"><div class="t">PatchEmbed</div><div class="s">conv 16×16 / stride 16</div><div class="s">3 → 128 ch @ 12²</div><div class="p">98 304</div></div>
+  <div class="node att"><div class="t">PatchEmbed</div><div class="s">conv 16×16 / stride 16</div><div class="s">3 → 128 ch @ 12²</div><div class="p">98 432</div></div>
   <div class="arrow">→</div>
   <div class="node att"><div class="t">tokens</div><div class="s">(B, 144, 128)</div><div class="p">0</div></div>
   <div class="arrow">→</div>
   <div class="node att"><div class="t">[CLS] + 位置编码</div><div class="s">(B, 145, 128)</div><div class="s">两者都是可学习参数</div><div class="p">18 688</div></div>
   <div class="arrow">→</div>
-  <div class="node att"><div class="t">Transformer ×4</div><div class="s">Pre-LN block</div><div class="s">多头自注意力 + MLP</div><div class="p">793 088</div></div>
+  <div class="node att"><div class="t">Transformer ×8</div><div class="s">Pre-LN block</div><div class="s">多头自注意力 + MLP</div><div class="p">1 586 176</div></div>
   <div class="arrow">→</div>
   <div class="node att"><div class="t">LayerNorm</div><div class="s">128</div><div class="p">256</div></div>
   <div class="arrow">→</div>
@@ -436,16 +460,58 @@
 </div>
 <div class="note">
   <b>关于 CNN_attention 的训练量：</b>把 <code>max_epochs</code> 提到 300 并交给 EarlyStopping（patience 10）之后，
-  它在第 47 轮才停、验证集 <b>89.80%</b>（AUC 0.9649）—— 而之前只给 10 epoch 时是 77.76%。
+  它在第 47 轮才停、验证集 <b>90.20%</b>（AUC 0.9640，按 val_acc 存档的是第 57 轮）——
+  而之前只给 10 epoch 时是 77.76%。
   同一个模型、同一套超参，差别只在训练量。这也是"跨模型比较不能按 epoch 对齐"最直接的证据。
 </div>
 <div class="note">
-  <b>ViT 为什么只到 72%：</b>它是一个 <b>0.91 M 参数、从随机初始化开始训练</b>的小 Transformer，训练集只有 1985 张。
+  <b>它的类别偏置值得单独看：</b>混淆矩阵 <code>[[244, 6], [43, 207]]</code> ——
+  cat 召回 <b>0.976</b>，dog 召回只有 <b>0.828</b>，43 张狗被判成猫。
+  相比之下 CNN 的 <code>[[216, 34], [16, 234]]</code> 两类几乎对称（0.864 / 0.936）。
+  也就是说它整体准确率虽然最高，但<b>不是均衡地强</b>。
+</div>
+<div class="note">
+  <b>ViT 为什么只到 73.6%：</b>它是一个 <b>1.70 M 参数、从随机初始化开始训练</b>的小 Transformer，训练集只有 1985 张。
   做了一组对照实验（<code>warmup_frac=0.1</code> + cosine 衰减到 0、120 epoch 地平线、关闭早停）：
   训练准确率从 73% 推到 <b>93.4%</b>（说明优化配方确实是之前"学不动"的原因），
   但验证准确率只有 <b>71.80%</b>（与不加调度的 72.00% 无差异），val_loss 最低点还停留在第 14 轮。
   也就是说 —— <b>失败模式从"欠拟合"变成了"过拟合"，瓶颈是数据量/归纳偏置，不是优化</b>。
-  搜索里换 embed_dim 128→256、depth 4→8 也全部无效（11 组结果都挤在 71.0~73.6%）。
+</div>
+<div class="note">
+  第三轮（带旋转）搜了 10 组，最优是 <code>depth 8</code> + <code>lr 1.52e-4</code>，搜索时 val_acc <b>74.00%</b>（67 轮收敛），
+  正式训练存档 <b>73.60%</b>。<code>depth 4→8</code> 这次是有用的（+1.6 pt），
+  但 <code>embed_dim 128→256</code> 依然完全无效，10 组结果全挤在 71.0~74.0%。
+  <b>随机旋转对它是中性的</b>（加/不加都是 72.00%，按新存档规则 73.60%）。
+</div>
+
+<hr class="hr">
+
+<h2>混淆矩阵 <span class="tag">500 张验证集 · 按 val_acc 存档的权重</span></h2>
+<div class="note">
+  左图是计数，右图是<b>按真实类归一化</b>（即召回率）。图片由 <code>catdog.evaluate</code> 用 Pillow 绘制，
+  原图分别在 <code>outputs/eval3/&lt;model&gt;_acc/confusion_matrix.png</code>。
+</div>
+<div class="mats">
+  <figure>
+    <img src="../outputs/eval3/cnn_attention_acc/confusion_matrix.png" alt="CNN_attention 混淆矩阵">
+    <figcaption><b>CNN_attention</b> · 90.20% · AUC 0.9640 · ckpt ep57 —— cat 召回 0.976、dog 召回 0.828，<b>偏 cat</b></figcaption>
+  </figure>
+  <figure>
+    <img src="../outputs/eval3/cnn_acc/confusion_matrix.png" alt="CNN 混淆矩阵">
+    <figcaption><b>CNN</b> · 90.00% · AUC 0.9599 · ckpt ep86 —— 两类最对称（0.864 / 0.936）</figcaption>
+  </figure>
+  <figure>
+    <img src="../outputs/eval3/vit_acc/confusion_matrix.png" alt="ViT 混淆矩阵">
+    <figcaption><b>ViT</b> · 73.60% · AUC 0.7960 · ckpt ep34</figcaption>
+  </figure>
+  <figure>
+    <img src="../outputs/eval3/rnn_acc/confusion_matrix.png" alt="RNN 混淆矩阵">
+    <figcaption><b>RNN</b> · 71.40% · AUC 0.7513 · ckpt ep34</figcaption>
+  </figure>
+  <figure>
+    <img src="../outputs/eval3/dnn_acc/confusion_matrix.png" alt="DNN 混淆矩阵">
+    <figcaption><b>DNN</b> · 64.20% · AUC 0.6846 · ckpt ep8 —— 对角线几乎填平，基本是「大部分判成对」</figcaption>
+  </figure>
 </div>
 
 <hr class="hr">
@@ -460,9 +526,9 @@
     </div>
   </div>
   <div>
-    <div class="barlabel"><span>CNN · 25.13 M</span><span>layer4 独占 75.1%</span></div>
+    <div class="barlabel"><span>CNN · 11.18 M</span><span>layer4 独占 75.1%</span></div>
     <div class="bar">
-      <div class="seg" style="width:75.1%;background:#0284c7">layer4 · 768 ch</div>
+      <div class="seg" style="width:75.1%;background:#0284c7">layer4 · 512 ch</div>
       <div class="seg" style="width:18.8%;background:#38bdf8">l3</div>
       <div class="seg light" style="width:4.7%;background:#bae6fd">l2</div>
       <div class="seg light" style="width:1.3%;background:#e0f2fe"></div>
@@ -481,17 +547,17 @@
   <div>
     <div class="barlabel"><span>CNN_attention · 11.77 M</span><span>trunk 独占 95.0%</span></div>
     <div class="bar">
-      <div class="seg" style="width:95.0%;background:#d97706">ResNetTrunk · 11.18 M（= 调优前的 CNN）</div>
+      <div class="seg" style="width:95.0%;background:#d97706">ResNetTrunk · 11.18 M（与 CNN 主干同构）</div>
       <div class="seg light" style="width:4.5%;background:#fde68a">W_K W_V q</div>
       <div class="seg light" style="width:0.5%;background:#fffbeb"></div>
     </div>
   </div>
   <div>
-    <div class="barlabel"><span>ViT · 0.91 M</span><span>4 个 Transformer block 占 87.1%</span></div>
+    <div class="barlabel"><span>ViT · 1.70 M</span><span>8 个 Transformer block 占 93.1%</span></div>
     <div class="bar">
-      <div class="seg" style="width:87.1%;background:#b45309">Transformer ×4 · 793 088</div>
-      <div class="seg light" style="width:10.8%;background:#fcd34d">patch</div>
-      <div class="seg light" style="width:2.1%;background:#fef3c7">CLS+pos</div>
+      <div class="seg" style="width:93.1%;background:#b45309">Transformer ×8 · 1 586 176</div>
+      <div class="seg light" style="width:5.8%;background:#fcd34d">patch</div>
+      <div class="seg light" style="width:1.1%;background:#fef3c7">CLS+pos</div>
     </div>
   </div>
 </div>
@@ -502,30 +568,38 @@
     <tr><th>模型</th><th>核心结构</th><th>输入处理</th><th class="num">参数量</th><th class="num">batch</th><th class="num">lr</th><th class="num">准确率</th><th class="num">单 epoch</th></tr>
   </thead>
   <tbody>
-    <tr><td><b>DNN</b></td><td>展平 + 4 层全连接</td><td>固定 192²</td><td class="num">56.76 M</td><td class="num">32</td><td class="num">1.79e-5</td><td class="num">63.20%</td><td class="num">≈ 9 s</td></tr>
-    <tr><td><b>CNN</b></td><td>ResNet-18 风格，width 96</td><td>固定 192²</td><td class="num">25.13 M</td><td class="num">64</td><td class="num">8.3e-3</td><td class="num">86.60%</td><td class="num">≈ 17 s</td></tr>
-    <tr><td><b>RNN</b></td><td>patch embedding + 双向 LSTM</td><td>固定 192²</td><td class="num">0.53 M</td><td class="num">64</td><td class="num">9.18e-5</td><td class="num">72.40%</td><td class="num">≈ 12 s</td></tr>
-    <tr><td><b>CNN_attention</b></td><td>ResNet trunk + 单 query 注意力</td><td>原图尺寸 + mask</td><td class="num">11.77 M</td><td class="num">8</td><td class="num">1.15e-4</td><td class="num">89.80%</td><td class="num">≈ 50 s</td></tr>
-    <tr><td><b>ViT</b></td><td>patch embedding + 4 层 Transformer</td><td>固定 192²</td><td class="num">0.91 M</td><td class="num">32</td><td class="num">1.9e-4</td><td class="num">72.00%</td><td class="num">≈ 12 s</td></tr>
+    <tr><td><b>DNN</b></td><td>展平 + 4 层全连接</td><td>固定 192²</td><td class="num">56.76 M</td><td class="num">32</td><td class="num">1.79e-5</td><td class="num">64.20%</td><td class="num">≈ 9 s</td></tr>
+    <tr><td><b>CNN</b></td><td>ResNet-18 风格，width 64</td><td>固定 192²</td><td class="num">11.18 M</td><td class="num">32</td><td class="num">4.04e-3</td><td class="num">90.00%</td><td class="num">≈ 17 s</td></tr>
+    <tr><td><b>RNN</b></td><td>patch embedding + 双向 LSTM</td><td>固定 192²</td><td class="num">0.53 M</td><td class="num">64</td><td class="num">9.18e-5</td><td class="num">71.40%</td><td class="num">≈ 12 s</td></tr>
+    <tr><td><b>CNN_attention</b></td><td>ResNet trunk + 单 query 注意力</td><td>原图尺寸 + mask</td><td class="num">11.77 M</td><td class="num">8</td><td class="num">1.15e-4</td><td class="num">90.20%</td><td class="num">≈ 50 s</td></tr>
+    <tr><td><b>ViT</b></td><td>patch embedding + 8 层 Transformer</td><td>固定 192²</td><td class="num">1.70 M</td><td class="num">32</td><td class="num">1.52e-4</td><td class="num">73.60%</td><td class="num">≈ 12 s</td></tr>
   </tbody>
 </table>
 
-<h3>三个反直觉的结论</h3>
+<h3>四个反直觉的结论</h3>
 <ol class="tight">
-  <li><b>参数量与精度不成正比。</b> CNN 用 25.13 M 达到 86.60%、RNN 用 0.53 M 达到 72.40%，
-      而 DNN 用了 56.76 M 只有 63.20%；反过来 CNN_attention 用 11.77 M 拿到 89.80%。
-      参数量的解释力几乎为零，起决定作用的是<b>归纳偏置</b>（有没有卷积先验）和<b>训练预算</b>。</li>
+  <li><b>参数量与精度完全不成正比。</b> DNN 用了 <b>56.76 M</b>（是 CNN 的 5 倍）只有 <b>64.20%</b>；
+      RNN 只有 <b>0.53 M</b> 却拿到 <b>71.40%</b>；CNN 用 <b>11.18 M</b> 拿到 <b>90.00%</b>。
+      参数量的解释力几乎为零，起决定作用的是<b>归纳偏置</b>（有没有卷积的局部性/平移等变先验）和<b>训练预算</b>。</li>
+  <li><b>同一个卷积主干，加上注意力只买到 +0.2 pt。</b> CNN 和 CNN_attention 现在的主干<b>完全同构</b>
+      （<code>base_width=64</code> 的 ResNet-18，11.18 M vs 11.77 M），差异只在头部：
+      平均池化 90.00% vs 单 query 注意力 90.20%。
+      而同一配置重跑的噪声是 <b>±1.4 pt</b> —— 也就是说<b>这 +0.2 pt 在噪声内，观察不到注意力的净收益</b>。
+      原因在下面 4. 的公式里：W_V 会被 FNN 首层线性吸收，真正新增的信息只有 α。
+      <b>它唯一的真实优势是能处理变长序列</b>（不裁掉 21.2% 的像素），但在 500 张验证集上也只兑现了 0.2 pt。</li>
   <li><b>参数量与算力也不成正比。</b> CNN 在 192² 上做稠密卷积，每张图 FLOPs 远高于 RNN；
-      而 RNN 的瓶颈是 LSTM 要串行跑 144 步、GPU 很难吃满，所以它参数最少、却并不更快。</li>
-  <li><b>CNN_attention 的 95% 参数其实是它的 trunk</b>（<code>base_width=64</code> 的 ResNet-18，11.18 M），
-      注意力头本体只占 5.9%（W_K, W_V, q 共 0.52 M + FNN 0.066 M）。
-      也就是说，本项目精度最高的模型，赢的部分仍然是卷积。</li>
+      而 RNN 的瓶颈是 LSTM 要串行跑 144 步、GPU 很难吃满，所以它参数最少、却并不更快。
+      加上 CNN_attention 的 batch 只有 8（变尺寸 collate），单 epoch 要 50 s，是 CNN 的 3 倍。</li>
+  <li><b>存档规则比大多数超参都值钱。</b> 把 ModelCheckpoint 的监控从 <code>val_loss</code> 换成 <code>val_acc</code>
+      这一个改动，五个模型平均 <b>+1.3 pt</b>（CNN +1.4、ViT +1.6、DNN +1.8、RNN +1.4、attention +0.4），
+      比第三轮 46 组超参搜索里大部分配置之间的差距还大。而它<b>不需要重训、不花算力</b>，
+      只是把"训练过程中已经出现过的那个更高的点"正确地存下来。
+      （注意：早停不能一起换，见调参报告第 2.2 节。）</li>
 </ol>
 
 <div class="foot">
-  结构定义见 <code>src/catdog/models/{DNN,CNN,RNN,CNN_attention}/</code>　·　
+  结构定义见 <code>src/catdog/models/{DNN,CNN,RNN,CNN_attention,ViT}/</code>　·　
   超参见各目录下的 <code>cfg.py</code>　·　完整调参过程见 <code>docs/调参报告.docx</code>
-  <br>结构定义：<code>src/catdog/models/{DNN,CNN,RNN,CNN_attention,ViT}/</code>
 </div>
 
 </div>

@@ -1,0 +1,10 @@
+{
+    "cache_key": "eyJhcmd1bWVudHMiOlsiLS1sb2dkaXJfc3BlYyIsImNubl9hdHRlbnRpb246b3V0cHV0cy9maW5hbDMvY25uX2F0dGVudGlvbl9hY2MsY25uOm91dHB1dHMvZmluYWwzL2Nubl9hY2Msdml0Om91dHB1dHMvZmluYWwzL3ZpdF9hY2Mscm5uOm91dHB1dHMvZmluYWwzL3Jubl9hY2MsZG5uOm91dHB1dHMvZmluYWwzL2Rubl9hY2MiLCItLXBvcnQiLCI2MDA2IiwiLS1ob3N0IiwiMTI3LjAuMC4xIiwiLS1yZWxvYWRfaW50ZXJ2YWwiLCIxMCJdLCJjb25maWd1cmVfa3dhcmdzIjp7fSwid29ya2luZ19kaXJlY3RvcnkiOiJEOlxcdnNjb2RlXFxjYXRfZG9nX2NsYXNzaWZpY2F0aW9uIn0=",
+    "db": "",
+    "logdir": "cnn_attention:outputs/final3/cnn_attention_acc,cnn:outputs/final3/cnn_acc,vit:outputs/final3/vit_acc,rnn:outputs/final3/rnn_acc,dnn:outputs/final3/dnn_acc",
+    "path_prefix": "",
+    "pid": 57364,
+    "port": 6006,
+    "start_time": 1792757892,
+    "version": "2.21.0"
+}

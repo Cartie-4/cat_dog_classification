@@ -159,6 +159,7 @@ def run_exp(args) -> dict:
         devices=1,
         precision="16-mixed",
         callbacks=[recorder],
+        early_stop_patience=args.early_stop_patience,
     )
 
     started = time.perf_counter()
@@ -193,6 +194,12 @@ def main() -> None:
     parser.add_argument("--data", choices=["attn", "img192"], default="img192")
     parser.add_argument("--head", choices=["attn", "gap"], default="attn")
     parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument(
+        "--early-stop-patience",
+        type=int,
+        default=0,
+        help=">0 时启用 EarlyStopping(val_loss, patience=N)，让每组训练到自己的收敛点（epochs 只作上限）",
+    )
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--lr", type=float, default=TUNED["lr"])

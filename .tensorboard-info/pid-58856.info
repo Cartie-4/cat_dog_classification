@@ -1,0 +1,10 @@
+{
+    "cache_key": "eyJhcmd1bWVudHMiOlsiLS1sb2dkaXIiLCJvdXRwdXRzL3RiIiwiLS1wb3J0IiwiNjAwNiIsIi0taG9zdCIsIjEyNy4wLjAuMSIsIi0tcmVsb2FkX2ludGVydmFsIiwiMTAiXSwiY29uZmlndXJlX2t3YXJncyI6e30sIndvcmtpbmdfZGlyZWN0b3J5IjoiRDpcXHZzY29kZVxcY2F0X2RvZ19jbGFzc2lmaWNhdGlvbiJ9",
+    "db": "",
+    "logdir": "outputs/tb",
+    "path_prefix": "",
+    "pid": 58856,
+    "port": 6006,
+    "start_time": 1792757959,
+    "version": "2.21.0"
+}

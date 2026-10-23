@@ -1,0 +1,10 @@
+{
+    "cache_key": "eyJhcmd1bWVudHMiOlsiLS1sb2dkaXJfc3BlYyIsImNubl9hdHRlbnRpb246RDovdnNjb2RlL2NhdF9kb2dfY2xhc3NpZmljYXRpb24vb3V0cHV0cy9maW5hbDMvY25uX2F0dGVudGlvbl9hY2MvMjAyNi0xMC0yM18wOS00Ni00Nyxjbm46RDovdnNjb2RlL2NhdF9kb2dfY2xhc3NpZmljYXRpb24vb3V0cHV0cy9maW5hbDMvY25uX2FjYy8yMDI2LTEwLTIzXzA4LTMzLTE1LHZpdDpEOi92c2NvZGUvY2F0X2RvZ19jbGFzc2lmaWNhdGlvbi9vdXRwdXRzL2ZpbmFsMy92aXRfYWNjLzIwMjYtMTAtMjNfMDktMTUtNDIscm5uOkQ6L3ZzY29kZS9jYXRfZG9nX2NsYXNzaWZpY2F0aW9uL291dHB1dHMvZmluYWwzL3Jubl9hY2MvMjAyNi0xMC0yM18wOS0zMS01MCxkbm46RDovdnNjb2RlL2NhdF9kb2dfY2xhc3NpZmljYXRpb24vb3V0cHV0cy9maW5hbDMvZG5uX2FjYy8yMDI2LTEwLTIzXzA5LTEwLTQ0IiwiLS1wb3J0IiwiNjAwNiIsIi0taG9zdCIsIjEyNy4wLjAuMSIsIi0tcmVsb2FkX2ludGVydmFsIiwiMTAiXSwiY29uZmlndXJlX2t3YXJncyI6e30sIndvcmtpbmdfZGlyZWN0b3J5IjoiRDpcXHZzY29kZVxcY2F0X2RvZ19jbGFzc2lmaWNhdGlvbiJ9",
+    "db": "",
+    "logdir": "cnn_attention:D:/vscode/cat_dog_classification/outputs/final3/cnn_attention_acc/2026-10-23_09-46-47,cnn:D:/vscode/cat_dog_classification/outputs/final3/cnn_acc/2026-10-23_08-33-15,vit:D:/vscode/cat_dog_classification/outputs/final3/vit_acc/2026-10-23_09-15-42,rnn:D:/vscode/cat_dog_classification/outputs/final3/rnn_acc/2026-10-23_09-31-50,dnn:D:/vscode/cat_dog_classification/outputs/final3/dnn_acc/2026-10-23_09-10-44",
+    "path_prefix": "",
+    "pid": 51344,
+    "port": 6006,
+    "start_time": 1792757924,
+    "version": "2.21.0"
+}

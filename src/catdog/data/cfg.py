@@ -34,10 +34,14 @@ class DataConfig:
 def image_preset(
     size: int = DEFAULT_IMAGE_SIZE, batch_size: int = DEFAULT_BATCH_SIZE
 ) -> DataConfig:
-    """固定尺寸模型的默认预处理（DNN / CNN / RNN 共用）。
+    """固定尺寸模型的默认预处理（DNN / CNN / RNN / ViT 共用）。
 
     训练：短边缩放到 size -> 随机裁剪 size -> 随机水平翻转 -> 标准化
+          -> 随机旋转（±15°）
     验证：短边缩放到 size -> 中心裁剪 size -> 标准化
+
+    旋转放在 ``Normalize`` 之后：补零值 0 对应逐通道均值色，
+    不会像旋转前补零那样引入黑边。
     """
     return DataConfig(
         variable_size=False,
@@ -47,6 +51,7 @@ def image_preset(
             TransformConfig(TransformType.RandomCrop, {"size": size}),
             TransformConfig(TransformType.RandomFlip, {"p_horizontal": 0.5}),
             TransformConfig(TransformType.Normalize),
+            TransformConfig(TransformType.RandomRotate, {"degrees": 15.0}),
         ],
         val=[
             TransformConfig(TransformType.Resize, {"size": size}),

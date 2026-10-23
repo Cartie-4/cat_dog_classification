@@ -260,6 +260,18 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--stats-max-samples", type=int, default=None)
     parser.add_argument("--out-dir", default="outputs")
     parser.add_argument(
+        "--monitor",
+        default="val_loss",
+        choices=["val_loss", "val_acc"],
+        help=(
+            "ModelCheckpoint 监控的指标。默认 val_loss（mode=min）；"
+            "传 val_acc 时按准确率挑最优权重（mode=max）——"
+            "训练里 val_loss 最低点和 val_acc 峰值常常不在同一轮，关心准确率时用这个。"
+            "注意 EarlyStopping 固定看 val_loss，不跟随此参数：val_acc 早期抖动大"
+            "（patience 内 ±2 pt），用它早停会提前终止训练。"
+        ),
+    )
+    parser.add_argument(
         "--fast-dev-run",
         action="store_true",
         help="只跑 1 个 train/val batch，用于冒烟测试",
@@ -282,12 +294,13 @@ def main(argv=None) -> None:
 
     trainer_builder = TRAINER_BUILDERS[args.model]
     epochs = args.epochs if args.epochs is not None else default_epochs(args.model)
-    print(f"[train] model={args.model} epochs={epochs}")
+    print(f"[train] model={args.model} epochs={epochs} monitor={args.monitor}")
     trainer = trainer_builder(
         max_epochs=epochs,
         accelerator=args.accelerator,
         devices=args.devices,
         out_dir=args.out_dir,
+        monitor=args.monitor,
         fast_dev_run=args.fast_dev_run,
     )
 

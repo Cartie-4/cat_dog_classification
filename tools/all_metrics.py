@@ -16,6 +16,8 @@ from pathlib import Path
 
 ROOT = Path(".")
 MODELS = ["cnn_attention", "cnn", "rnn", "vit", "dnn"]
+EVAL_DIR = Path("outputs/eval")     # 可用 --eval-dir 覆盖（例如 outputs/eval3）
+TUNING_SUFFIX = "es_search"         # 可用 --suffix 覆盖（例如 rot_search）
 LABEL = {
     "cnn_attention": "CNN_attention",
     "cnn": "CNN",
@@ -25,16 +27,30 @@ LABEL = {
 }
 
 
+def _resolve(m: str, filename: str) -> Path | None:
+    """在 EVAL_DIR 下定位某个模型的评估产物。
+
+    依次尝试 ``<m>/``、``<m>_acc/``、``<m>_*``（取字典序最后一个，即最新后缀），
+    这样把旧的 val_loss 存档删掉、只留 ``*_acc`` 目录之后本工具仍然可用。
+    """
+    direct = EVAL_DIR / m / filename
+    if direct.exists():
+        return direct
+    for cand in sorted(EVAL_DIR.glob(f"{m}_*/{filename}")):
+        return cand
+    return None
+
+
 def load_eval(m):
-    p = ROOT / "outputs" / "eval" / m / "metrics.json"
-    if not p.exists():
+    p = _resolve(m, "metrics.json")
+    if p is None:
         return None
     return json.loads(p.read_text(encoding="utf-8"))
 
 
 def load_pred(m):
-    p = ROOT / "outputs" / "eval" / m / "predictions.csv"
-    if not p.exists():
+    p = _resolve(m, "predictions.csv")
+    if p is None:
         return {}
     return {r["filename"]: r for r in csv.DictReader(open(p, encoding="utf-8"))}
 
@@ -42,7 +58,7 @@ def load_pred(m):
 def load_curves():
     """解析三个日志，返回 {model: (best_val, train_at_best, epoch, last_epoch)}"""
     out = {}
-    for fn in ["final_log.txt", "final2_log.txt", "final2b_log.txt"]:
+    for fn in ["final_log.txt", "final2_log.txt", "final2b_log.txt", "round3_final_log.txt"]:
         p = ROOT / "outputs" / fn
         if not p.exists():
             continue
@@ -75,7 +91,7 @@ def load_curves():
 
 
 def load_search(m):
-    p = ROOT / "outputs" / "tuning" / f"{m}_es_search_trials.jsonl"
+    p = ROOT / "outputs" / "tuning" / f"{m}_{TUNING_SUFFIX}_trials.jsonl"
     if not p.exists():
         return []
     return [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
@@ -112,6 +128,19 @@ def cfg_row(m):
 
 
 def main():
+    import argparse
+
+    ap = argparse.ArgumentParser(description="汇总所有模型指标")
+    ap.add_argument("--eval-dir", default="outputs/eval",
+                    help="评估结果目录（含 <model>/metrics.json），例如 outputs/eval3")
+    ap.add_argument("--suffix", default="es_search",
+                    help="搜索结果文件后缀，例如 rot_search")
+    args = ap.parse_args()
+
+    global EVAL_DIR, TUNING_SUFFIX
+    EVAL_DIR = Path(args.eval_dir)
+    TUNING_SUFFIX = args.suffix
+
     curves = load_curves()
     preds = {m: load_pred(m) for m in MODELS}
     evals = {m: load_eval(m) for m in MODELS}

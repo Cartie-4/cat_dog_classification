@@ -292,11 +292,14 @@ def run_trial(
     ckpt_dir: Optional[Path] = None,
     early_stop_patience: int = 0,
     progress_every: int = 0,
+    ckpt_monitor: str = "val_loss",
     fast_dev_run: bool = False,
 ) -> dict[str, Any]:
     """跑一组超参，返回指标汇总。
 
-    ``ckpt_dir`` 非空时按 ``val_loss`` 保存最优权重（供 ``catdog.evaluate`` 使用）。
+    ``ckpt_dir`` 非空时保存最优权重（供 ``catdog.evaluate`` 使用）；
+    ``ckpt_monitor`` 决定按什么挑最优：``val_loss``（默认，mode=min）
+    或 ``val_acc``（mode=max，用于"按准确率选模型"）。
     ``early_stop_patience > 0`` 时每组超参训练到自己的早停点（``epochs`` 只是上限）。
     ``progress_every > 0`` 时每 N 轮打印一行验证指标，便于盯平台期。
     """
@@ -314,14 +317,21 @@ def run_trial(
     if ckpt_dir is not None:
         ckpt_dir = Path(ckpt_dir)
         ckpt_dir.mkdir(parents=True, exist_ok=True)
+        # ckpt_monitor="val_acc" 时按准确率存最优（mode=max）：
+        # 训练里 val_loss 的最低点和 val_acc 的峰值常常不在同一轮，
+        # 而我们真正关心的是准确率。
+        _mon = "val_acc" if ckpt_monitor == "val_acc" else "val_loss"
+        _mode = "max" if _mon == "val_acc" else "min"
         callbacks.append(
             ModelCheckpoint(
                 dirpath=str(ckpt_dir),
-                monitor="val_loss",
-                mode="min",
+                monitor=_mon,
+                mode=_mode,
                 save_top_k=1,
                 save_weights_only=True,
-                filename=f"{model}-epoch={{epoch:02d}}-val_loss={{val_loss:.4f}}",
+                # 生成类似 "cnn-epoch={epoch:02d}-val_acc={val_acc:.4f}" 的模板：
+                # {{{_mon} 先输出一个字面量 "{"，再插入指标名
+                filename=f"{model}-epoch={{epoch:02d}}-{_mon}={{{_mon}:.4f}}",
                 auto_insert_metric_name=False,
             )
         )
@@ -458,7 +468,16 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument(
         "--save-ckpt",
         action="store_true",
-        help="保存验证集最优权重到 <out>/ckpt_<tag>/，供 catdog.evaluate 使用",
+        help="保存验证集最优权重到 <out>/ckpt_<model>_<tag>/，供 catdog.evaluate 使用",
+    )
+    parser.add_argument(
+        "--ckpt-monitor",
+        default="val_loss",
+        choices=["val_loss", "val_acc"],
+        help=(
+            "存 ckpt 时按哪个指标挑最优：val_loss（默认，mode=min）或 "
+            "val_acc（mode=max）。两者最优点常不在同一轮，关心准确率时用 val_acc。"
+        ),
     )
     parser.add_argument(
         "--progress-every",
@@ -534,6 +553,7 @@ def main(argv=None) -> None:
             ),
             early_stop_patience=args.early_stop_patience,
             progress_every=args.progress_every,
+            ckpt_monitor=args.ckpt_monitor,
             fast_dev_run=args.fast_dev_run,
         )
         result["trial"] = trial
