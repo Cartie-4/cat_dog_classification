@@ -139,10 +139,15 @@ python -m catdog.evaluate --ckpt <ckpt 文件> --split both --top-k-errors 20
 
 ## 权重文件在哪
 
-> **重要：`outputs/` 已在 `.gitignore` 里，所以下面这些文件只在本地工作目录，不在版本库中**
-> （`git ls-files outputs` 返回空）。换机器/重新 clone 后不会带过来，需要重跑训练自己生成。
+五个模型的最终权重**已通过 Git LFS 入库**（commit `351f193`）。
+`outputs/` 其余内容仍然被 `.gitignore` 忽略，只有这五个 `*val_acc=*.ckpt` 被逐层放行。
 
-五个模型最终权重的确切路径（共约 313 MB，`last.ckpt` 是各目录里的另一份）：
+> **克隆本仓库前请先安装并初始化 LFS**，否则拿到的只是指针文件：
+> ```bash
+> git lfs install
+> git clone https://github.com/Cartie-4/cat_dog_classification.git
+> ```
+> `.gitattributes` 里写的是 `*.ckpt filter=lfs`。
 
 | 模型 | ckpt 路径 | 大小 |
 |---|---|---|
@@ -152,13 +157,15 @@ python -m catdog.evaluate --ckpt <ckpt 文件> --split both --top-k-errors 20
 | RNN | `outputs/final3/rnn_acc/2026-10-23_09-31-50/checkpoints/RNN_epoch=34-val_acc=0.7140.ckpt` | 2.0 MB |
 | DNN | `outputs/final3/dnn_acc/2026-10-23_09-10-44/checkpoints/DNN-epoch=08-val_acc=0.6420.ckpt` | 216.5 MB |
 
-想直接从权重回到混淆矩阵：
+共 313 MB。各目录里的 `last.ckpt`（每个都和最优权重一样大，合计又 313 MB）**没有入库**。
+
+直接从权重回到混淆矩阵：
 
 ```bash
 python -m catdog.evaluate --ckpt outputs/final3/cnn_acc/<时间>/checkpoints --out outputs/eval3/cnn_acc
 ```
 
-**现成的五个混淆矩阵**（对应上表权重的评估结果，同样只在本地）：
+**五个混淆矩阵**（对应上表权重的评估结果，**只在本地**，未入库）：
 
 | 模型 | 图 | 数据 |
 |---|---|---|
@@ -168,9 +175,9 @@ python -m catdog.evaluate --ckpt outputs/final3/cnn_acc/<时间>/checkpoints --o
 | RNN | `outputs/eval3/rnn_acc/confusion_matrix.png` | 同上 |
 | DNN | `outputs/eval3/dnn_acc/confusion_matrix.png` | 同上 |
 
-> 注意：上表这几张图在 `outputs/` 下，**同样不在版本库里**。
-> 真正进了版本库的只有 `docs/` 下的内容——包括拼图版 `docs/confusion_matrices.png`、
-> `docs/models_architecture.html`、`docs/调参报告.docx` 等。
+> 这些图可以用上面的 `catdog.evaluate` 从权重重新生成。
+> 想直接看图的话，`docs/confusion_matrices.png`（五张拼图）是入库的；
+> 单张原图也可以理解为 `docs/` 之外的本地产物。
 
 五张拼成一张的总览图在 `docs/confusion_matrices.png`；
 `docs/models_architecture.html` 的「混淆矩阵」一节也直接嵌了这五张图。
